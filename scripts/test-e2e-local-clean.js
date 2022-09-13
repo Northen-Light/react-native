@@ -24,7 +24,7 @@
  *  - kill all packagers
  *  - remove RNTestProject folder
  *
- * other improvements to consider:
+ * an improvements to consider:
  *   - an option to uninstall the apps (RNTester, RNTestProject) from emulators
  */
 
@@ -32,44 +32,38 @@ const {exec, exit} = require('shelljs');
 
 const {isPackagerRunning} = require('./testing-utils');
 
-console.info('Starting the clean up process');
+console.info('\n** Starting the clean up process **\n');
 
 // let's check if Metro is already running, if it is let's kill it and start fresh
 if (isPackagerRunning() === 'running') {
   exec("lsof -i :8081 | grep LISTEN | /usr/bin/awk '{print $2}' | xargs kill");
-  console.info('Killed Metro');
+  console.info('\n** Killed Metro **\n');
 }
 
 // Android
-console.info('Cleaning Gradle build artifacts');
+console.info('\n** Cleaning Gradle build artifacts **\n');
 exec('./gradlew cleanAll');
 
 // iOS
-console.info('Nuking the derived data folder');
+console.info('\n** Nuking the derived data folder **\n');
 exec('rm -rf ~/Library/Developer/Xcode/DerivedData');
 
 // RNTester Pods
-console.info('Removing the RNTester Pods');
+console.info('\n** Removing the RNTester Pods **\n');
 exec('rm -rf packages/rn-tester/Pods');
 
 // I'm not sure we want to also remove the lock file
 // exec('rm -rf packages/rn-tester/Podfile.lock');
 
 // RNTestProject
-console.info('Removing the RNTestProject folder');
+console.info('\n** Removing the RNTestProject folder **\n');
 exec('rm -rf /tmp/RNTestProject');
 
-// final leftover cleanups
-console.info('Removing leftovers and node_modules');
-exec('rm -f ./*.tgz');
-exec('rm -rf node_modules');
-
-// this should make the two rm -rf commands above redundant
-// but for now I want to keep it as the explicit last step
-console.info('Final git level wipe');
+// final clean up
+console.info('\n** Final git level wipe **\n');
 exec('git clean -fdx');
 
 console.info(
-  'Clean up process completed\nPlease remember to run yarn install if you are planning to test again',
+  '\n** Clean up process completed\nPlease remember to run yarn install if you are planning to test again\n',
 );
 exit(0);
