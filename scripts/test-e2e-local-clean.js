@@ -30,6 +30,8 @@
 
 const {exec, exit} = require('shelljs');
 
+const {isPackagerRunning} = require('./testing-utils');
+
 console.info('Starting the clean up process');
 
 // let's check if Metro is already running, if it is let's kill it and start fresh
