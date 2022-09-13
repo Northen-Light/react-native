@@ -51,7 +51,9 @@ exec('rm -rf ~/Library/Developer/Xcode/DerivedData');
 // RNTester Pods
 console.info('Removing the RNTester Pods');
 exec('rm -rf packages/rn-tester/Pods');
-exec('rm -rf packages/rn-tester/Podfile.lock');
+
+// I'm not sure we want to also remove the lock file
+// exec('rm -rf packages/rn-tester/Podfile.lock');
 
 // RNTestProject
 console.info('Removing the RNTestProject folder');
