@@ -151,6 +151,7 @@ if (argv.target === 'RNTester') {
     if (argv.platform === 'iOS') {
       // if we want iOS, we need to do pod install - but with a trick
       cd('ios');
+      exec('bundle install');
 
       // TODO: we should be able to also use HERMES_ENGINE_TARBALL_PATH
       // if we can make RNTester step generate it already so that it gets reused
