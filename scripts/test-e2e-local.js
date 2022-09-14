@@ -16,7 +16,7 @@
  * and to make it more accessible for other devs to play around with.
  */
 
-const {exec, exit, pushd, popd, pwd} = require('shelljs');
+const {exec, exit, pushd, popd, pwd, cd} = require('shelljs');
 const yargs = require('yargs');
 
 const {
@@ -26,8 +26,6 @@ const {
 } = require('./testing-utils');
 
 const {generateAndroidArtifacts} = require('./release-utils');
-
-// const {isReleaseBranch, parseVersion} = require('./version-utils');
 
 const argv = yargs
   .option('t', {
@@ -67,17 +65,6 @@ if (argv.target === 'RNTester') {
   // see also https://github.com/shelljs/shelljs/issues/86
 
   if (argv.platform === 'iOS') {
-    if (argv.hermes) {
-      console.info("We're going to test the Hermes version of RNTester iOS");
-      exec(
-        'cd packages/rn-tester && USE_HERMES=1 bundle exec pod install --ansi',
-      );
-    } else {
-      console.info("We're going to test the JSC version of RNTester iOS");
-      exec(
-        'cd packages/rn-tester && USE_HERMES=0 bundle exec pod install --ansi',
-      );
-    }
     console.info("We're going to test the Hermes version of RNTester iOS");
     exec(
       `cd packages/rn-tester && USE_HERMES=${
@@ -136,39 +123,66 @@ if (argv.target === 'RNTester') {
 
   const releaseVersion = `${baseVersion}-${dateIdentifier}`;
 
-  // this is needed to generate the Android artifacts correctly
-  // FIXME: the problem is that this also causes the Hermes on iOS side to crash on pod install
-  // the problem is that it tries to pull down Hermes from GH Release of a version that doesn't exist yet
-  // need to check with cortinico how the current script manages to avoid this issue
-  // TODO: get back in main branch proper, test old script, see what is different in generation
-  exec(`node scripts/set-rn-version.js --to-version ${releaseVersion}`).code;
+  // need to put it into into a try finally to ensure that we clean up the state
+  try {
+    // this is needed to generate the Android artifacts correctly
+    exec(`node scripts/set-rn-version.js --to-version ${releaseVersion}`).code;
 
-  // Generate native files (Android only for now)
-  generateAndroidArtifacts(releaseVersion);
+    // Generate native files (Android only for now)
+    generateAndroidArtifacts(releaseVersion);
 
-  // create locally the node module
-  exec('npm pack');
+    // create locally the node module
+    exec('npm pack');
 
-  const localNodeTGZPath = `${pwd()}/react-native-${releaseVersion}.tgz`;
-  exec(`node scripts/set-rn-template-version.js "file:${localNodeTGZPath}"`);
+    const localNodeTGZPath = `${pwd()}/react-native-${releaseVersion}.tgz`;
+    exec(`node scripts/set-rn-template-version.js "file:${localNodeTGZPath}"`);
 
-  const repoRoot = pwd();
+    const repoRoot = pwd();
 
-  pushd('/tmp/');
-  // need to avoid the pod install step because it will fail! (see above)
-  exec(`node ${repoRoot}/cli.js init RNTestProject --template ${repoRoot}`);
-  popd();
+    pushd('/tmp/');
+    // need to avoid the pod install step because it will fail! (see above)
+    exec(
+      `node ${repoRoot}/cli.js init RNTestProject --template ${repoRoot} --skip-install`,
+    );
 
-  // now we can generate the new project via the CLI
-  console.info(
-    'New sample project correctly generated at /tmp/RNTestProject. Go test it out!',
-  );
+    cd('RNTestProject');
+    exec('yarn install');
 
-  // TODO: we need to add the ability to test the Android/iOS versions of the project
+    if (argv.platform === 'iOS') {
+      // if we want iOS, we need to do pod install - but with a trick
+      cd('ios');
 
-  // at the end here I most likely want to set back the rn version to baseVersion!
-  // for git "cleanness" reasons
-  exec(`node scripts/set-rn-template-version.js ${baseVersion}`);
+      // TODO: we should be able to also use HERMES_ENGINE_TARBALL_PATH
+      // if we can make RNTester step generate it already so that it gets reused
+
+      // need to discern if it's main branch or release branch
+      if (baseVersion === '1000.0.0') {
+        // main branch
+        exec(
+          `USE_HERMES=${argv.hermes ? 1 : 0} bundle exec pod install --ansi`,
+        );
+      } else {
+        // a release branch
+        // copy over the .hermesversion file from react-native core into the RNTestProject
+        exec(`cp -f ${repoRoot}/sdks/.hermesversion .`);
+        exec(
+          `CI=true USE_HERMES=${
+            argv.hermes ? 1 : 0
+          } bundle exec pod install --ansi`,
+        );
+      }
+      cd('..');
+      exec('yarn ios');
+    } else {
+      // android
+      exec('yarn android');
+    }
+    popd();
+  } finally {
+    // at the end here I most likely want to set back the rn version to baseVersion!
+    // for git "cleanness" reasons
+    exec(`node scripts/set-rn-template-version.js ${baseVersion}`);
+  }
 }
 
 exit(0);
