@@ -78,6 +78,12 @@ if (argv.target === 'RNTester') {
         'cd packages/rn-tester && USE_HERMES=0 bundle exec pod install --ansi',
       );
     }
+    console.info("We're going to test the Hermes version of RNTester iOS");
+    exec(
+      `cd packages/rn-tester && USE_HERMES=${
+        argv.hermes ? 1 : 0
+      } bundle exec pod install --ansi`,
+    );
 
     // if everything succeeded so far, we can launch Metro and the app
     // start the Metro server in a separate window
